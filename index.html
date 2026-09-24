@@ -186,7 +186,7 @@ var fsrc = [
 "  float gp = clamp((pdP.y - uHor) / max(0.001, 1.0 - uHor), 0.0, 1.0);",
 "  // the ground plane alone is a SHEAR -- it says 'tilted away', which the eye",
 "  // already reads from perspective in the flat image, so it adds nothing.",
-"  float depth = pow(gp, 1.35) * uPlane;"
+"  float depth = pow(gp, 1.35) * uPlane;",
 "",
 "  // relief: on sand, luminance reads as form -- lit crests stand proud of",
 "  // shadowed troughs. A small term, or it fights the ground plane.",
@@ -194,7 +194,7 @@ var fsrc = [
 "  // RELIEF is what should make the dunes feel sculpted: at one height in the",
 "  // frame a lit crest stands nearer than the shadowed trough beside it. On",
 "  // sand under a low sun, luminance is a fair proxy for that.",
-"  depth += (pl - 0.42) * uRelief * smoothstep(0.02, 0.28, gp) * (1.0 - 0.7*figureZone(pdP));"
+"  depth += (pl - 0.42) * uRelief * smoothstep(0.02, 0.28, gp) * (1.0 - 0.7*figureZone(pdP));",
 "",
 "  // the figure stands on the plane, so it sits slightly proud of it",
 "  // the figures stand ON the plane, so only a little proud of it. A large",
