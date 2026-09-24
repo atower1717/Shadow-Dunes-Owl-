@@ -83,6 +83,8 @@
 <div id="cal">
   <span class="grp">width <button data-a="wm">&minus;</button><button data-a="wp">+</button></span>
   <span class="grp">depth <button data-a="sm">&minus;</button><button data-a="sp">+</button></span>
+  <span class="grp">relief <button data-a="rm">&minus;</button><button data-a="rp">+</button></span>
+  <span class="grp">plane <button data-a="pm">&minus;</button><button data-a="pp">+</button></span>
   <span class="grp"><button data-a="swap">swap eyes</button><button data-a="flat">2D</button><button data-a="rep">restart</button><button data-a="max">MAX</button></span>
   <span id="calread"></span>
 </div>
@@ -119,6 +121,8 @@ var fsrc = [
 "uniform vec2  uEye;",     // viewpoint shift -1..1
 "uniform float uPar;",     // parallax strength; 0 = flat
 "uniform float uHor;",     // horizon height in frame (0 top .. 1 bottom)
+"uniform float uPlane;",   // weight of the receding ground plane
+"uniform float uRelief;",  // weight of the dunes' own volume (luminance as height)
 "uniform float uDepthView;",// 1 = show the depth map     // A/B: 1 = the tail sweep on the lower dunes, 0 = off
 "",
 "float hash(vec2 n){ return fract(sin(dot(n,vec2(12.9898,78.233)))*43758.5453); }",
@@ -172,12 +176,17 @@ var fsrc = [
 "  // gives a physically correct depth, with no segmentation needed.",
 "  vec2 pdP = uv;",
 "  float gp = clamp((pdP.y - uHor) / max(0.001, 1.0 - uHor), 0.0, 1.0);",
-"  float depth = pow(gp, 1.35);",          // perspective: compresses toward the horizon
+"  // the ground plane alone is a SHEAR -- it says 'tilted away', which the eye",
+"  // already reads from perspective in the flat image, so it adds nothing.",
+"  float depth = pow(gp, 1.35) * uPlane;"
 "",
 "  // relief: on sand, luminance reads as form -- lit crests stand proud of",
 "  // shadowed troughs. A small term, or it fights the ground plane.",
 "  float pl = dot(texture2D(tex, pdP).rgb, vec3(0.299,0.587,0.114));",
-"  depth += (pl - 0.42) * 0.13 * smoothstep(0.02, 0.28, gp) * (1.0 - 0.7*figureZone(pdP));",
+"  // RELIEF is what should make the dunes feel sculpted: at one height in the",
+"  // frame a lit crest stands nearer than the shadowed trough beside it. On",
+"  // sand under a low sun, luminance is a fair proxy for that.",
+"  depth += (pl - 0.42) * uRelief * smoothstep(0.02, 0.28, gp) * (1.0 - 0.7*figureZone(pdP));"
 "",
 "  // the figure stands on the plane, so it sits slightly proud of it",
 "  // the figures stand ON the plane, so only a little proud of it. A large",
@@ -442,6 +451,8 @@ var uTailOn=gl.getUniformLocation(prog,"tailOn");
 var uEye=gl.getUniformLocation(prog,"uEye");
 var uPar=gl.getUniformLocation(prog,"uPar");
 var uHor=gl.getUniformLocation(prog,"uHor");
+var uPlane=gl.getUniformLocation(prog,"uPlane");
+var uRelief=gl.getUniformLocation(prog,"uRelief");
 var uDepthView=gl.getUniformLocation(prog,"uDepthView");
 // ---- parallax test rig ----
 var PAR=0.037, HOR=0.27, DEPTHVIEW=0.0;   // settled by eye: 0.037 parallax, horizon 0.27
@@ -533,9 +544,11 @@ var startTime=null, running=false;
 //      nearest thing in frame. Stereo wants far less than the mouse parallax
 //      did -- a couple of percent of image width, not seven. ----
 var STEREO=0.045, SIGN=1.0, FLAT=false, HALFMM=65, LOOPS=0;
+var PLANE=1.0, RELIEF=0.55;   // relief was 0.13 -- far too small to register
 function calRead(){
   var el=document.getElementById('calread');
   if(el) el.textContent='half '+HALFMM+' mm   baseline '+STEREO.toFixed(3)
+        +'  plane '+PLANE.toFixed(2)+'  relief '+RELIEF.toFixed(2)
         +'   '+(FLAT?'2D':(SIGN>0?'normal':'swapped'))
         +(LOOPS?'   pass '+(LOOPS+1):'');
 }
@@ -561,6 +574,10 @@ document.getElementById('cal').addEventListener('click',function(ev){
   else if(a==='flat'){ FLAT=!FLAT; calRead(); }
   else if(a==='rep'){ startTime=null; windPhase=0.0; lastPaceT=0.0; LOOPS=0; calRead(); }
   else if(a==='max'){ STEREO=(STEREO>0.08?0.045:0.095); calRead(); }
+  else if(a==='rm'){ RELIEF=Math.max(0,RELIEF-0.15); calRead(); }
+  else if(a==='rp'){ RELIEF=Math.min(2.4,RELIEF+0.15); calRead(); }
+  else if(a==='pm'){ PLANE=Math.max(0,PLANE-0.2); calRead(); }
+  else if(a==='pp'){ PLANE=Math.min(2.0,PLANE+0.2); calRead(); }
 });
 function frame(now){
   if(!running) return;
@@ -623,6 +640,8 @@ function frame(now){
   gl.uniform2f(uEye,eyeX,eyeY);
   gl.uniform1f(uPar,PAR);
   gl.uniform1f(uHor,HOR);
+  gl.uniform1f(uPlane,PLANE);
+  gl.uniform1f(uRelief,RELIEF);
   gl.uniform1f(uDepthView,DEPTHVIEW);
 
   // ---- one pass per eye. Vertical parallax is held at ZERO: any vertical
