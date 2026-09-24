@@ -16,6 +16,7 @@
   #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
     padding-bottom:62px;box-sizing:border-box;transition:padding-bottom .3s ease;}
   body.bare #stage{padding-bottom:0;}
+  body.started #hide{display:block;}
   #imgwrap{position:relative;
     width:calc(var(--half) * 2);
     height:calc(var(--half) / 1.4986);}
@@ -42,12 +43,19 @@
   @keyframes fade{to{opacity:1}}
   #enter.gone{opacity:0;pointer-events:none;}
   #cal{position:fixed;left:0;right:0;bottom:0;z-index:20;text-align:center;
+    opacity:0;pointer-events:none;
     padding:6px 0 8px;background:rgba(0,0,0,.55);
     font:11px/1.6 ui-monospace,Menlo,Consolas,monospace;color:#9a8f7e;letter-spacing:.06em;}
   #cal .grp{margin:0 .7em;white-space:nowrap;}
-  body.bare #cal{opacity:0;pointer-events:none;}
+  body.started #cal{opacity:1;pointer-events:auto;}
+  body.bare #cal{opacity:0 !important;pointer-events:none !important;}
   #cal{transition:opacity .3s ease;}
-  #hide{position:fixed;right:8px;top:8px;z-index:21;
+  /* the bar grew to two rows when relief/plane were added and buried Start.
+     The overlay now outranks it, and is cleared away once the run begins. */
+  #enter{z-index:40;}
+  #enter .box{position:relative;z-index:41;}
+  body.started #cal{padding-bottom:10px;}
+  #hide{position:fixed;right:8px;top:8px;z-index:21;display:none;
     font:11px/1 ui-monospace,Menlo,Consolas,monospace;color:#8c7c66;
     background:rgba(0,0,0,.5);border:1px solid #3a332a;padding:.55em .8em;border-radius:2px;}
   #cal button{font:inherit;font-size:13px;color:#cfc2a4;background:#15120c;
@@ -665,6 +673,7 @@ var audio=audSrc ? new Audio(audSrc) : null;
 if(audio){ audio.preload='auto'; }
 var AUDIO_FADE=8.0;
 function begin(){
+  document.body.classList.add('started');
   enter.classList.add('gone');
   again.classList.remove('show');
   startTime=null; running=true;
