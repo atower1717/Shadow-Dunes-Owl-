@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Tastes of Eternity — Shadow Dunes</title>
 <style>
   html,body{margin:0;padding:0;background:#040404;overflow:hidden;height:100%;font-family:'Georgia',serif;}
@@ -10,7 +13,9 @@
      OWL is built around -- NOT the screen width. Adjust with the buttons
      if your viewer wants it slightly narrower or wider. */
   :root{ --half: 65mm; }
-  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    padding-bottom:62px;box-sizing:border-box;transition:padding-bottom .3s ease;}
+  body.bare #stage{padding-bottom:0;}
   #imgwrap{position:relative;
     width:calc(var(--half) * 2);
     height:calc(var(--half) / 1.4986);}
@@ -40,6 +45,11 @@
     padding:6px 0 8px;background:rgba(0,0,0,.55);
     font:11px/1.6 ui-monospace,Menlo,Consolas,monospace;color:#9a8f7e;letter-spacing:.06em;}
   #cal .grp{margin:0 .7em;white-space:nowrap;}
+  body.bare #cal{opacity:0;pointer-events:none;}
+  #cal{transition:opacity .3s ease;}
+  #hide{position:fixed;right:8px;top:8px;z-index:21;
+    font:11px/1 ui-monospace,Menlo,Consolas,monospace;color:#8c7c66;
+    background:rgba(0,0,0,.5);border:1px solid #3a332a;padding:.55em .8em;border-radius:2px;}
   #cal button{font:inherit;color:#cfc2a4;background:#15120c;border:1px solid #4c4439;
     margin:0 .12em;padding:.42em .8em;border-radius:2px;}
   #cal button:active{background:#2a2317;}
@@ -69,10 +79,11 @@
   <div class="sub">hold the phone landscape &middot; rest the OWL on the glass</div>
   <div class="box">Start</div>
 </div>
+<button id="hide">hide</button>
 <div id="cal">
   <span class="grp">width <button data-a="wm">&minus;</button><button data-a="wp">+</button></span>
   <span class="grp">depth <button data-a="sm">&minus;</button><button data-a="sp">+</button></span>
-  <span class="grp"><button data-a="swap">swap eyes</button><button data-a="flat">2D</button></span>
+  <span class="grp"><button data-a="swap">swap eyes</button><button data-a="flat">2D</button><button data-a="rep">restart</button></span>
   <span id="calread"></span>
 </div>
 <script>
@@ -433,7 +444,7 @@ var uPar=gl.getUniformLocation(prog,"uPar");
 var uHor=gl.getUniformLocation(prog,"uHor");
 var uDepthView=gl.getUniformLocation(prog,"uDepthView");
 // ---- parallax test rig ----
-var PAR=0.083, HOR=0.27, DEPTHVIEW=0.0;   // settled by eye: 0.037 parallax, horizon 0.27
+var PAR=0.037, HOR=0.27, DEPTHVIEW=0.0;   // settled by eye: 0.037 parallax, horizon 0.27
 function parReadout(){
   var r=document.getElementById('ab');
   if(!r) return;
@@ -521,17 +532,24 @@ var startTime=null, running=false;
 // ---- stereo state. STEREO is the baseline: the left/right difference for the
 //      nearest thing in frame. Stereo wants far less than the mouse parallax
 //      did -- a couple of percent of image width, not seven. ----
-var STEREO=0.020, SIGN=1.0, FLAT=false, HALFMM=65;
+var STEREO=0.012, SIGN=1.0, FLAT=false, HALFMM=65;
 function calRead(){
   var el=document.getElementById('calread');
   if(el) el.textContent='half '+HALFMM+' mm   baseline '+STEREO.toFixed(3)
-        +'   '+(FLAT?'2D':(SIGN>0?'normal':'swapped'));
+        +'   '+(FLAT?'2D':(SIGN>0?'normal':'swapped'))
+        +(LOOPS?'   pass '+(LOOPS+1):'');
 }
 function setHalf(mm){
   HALFMM=Math.max(45,Math.min(80,mm));
   document.documentElement.style.setProperty('--half',HALFMM+'mm');
   resize(); calRead();
 }
+document.getElementById('hide').addEventListener('click',function(ev){
+  ev.stopPropagation();
+  document.body.classList.toggle('bare');
+  this.textContent = document.body.classList.contains('bare') ? 'show' : 'hide';
+  setTimeout(resize,340);      // the frame grows when the bar goes: re-measure
+});
 document.getElementById('cal').addEventListener('click',function(ev){
   var a=ev.target.getAttribute('data-a'); if(!a) return;
   ev.stopPropagation();
@@ -541,6 +559,7 @@ document.getElementById('cal').addEventListener('click',function(ev){
   else if(a==='sp'){ STEREO=Math.min(0.09,STEREO+0.002); calRead(); }
   else if(a==='swap'){ SIGN=-SIGN; calRead(); }
   else if(a==='flat'){ FLAT=!FLAT; calRead(); }
+  else if(a==='rep'){ startTime=null; windPhase=0.0; lastPaceT=0.0; LOOPS=0; calRead(); }
 });
 function frame(now){
   if(!running) return;
@@ -548,11 +567,14 @@ function frame(now){
   var t=(now-startTime)/1000.0;
   var dispScale=1.0;
   if(t>DURATION-10.0){ dispScale=Math.max(0.0,(DURATION-t)/10.0); }
-  if(t>=DURATION){ running=false;
-    /* the track writes its own ending: it is already below -60 dBFS by 124 s, so it
-       runs out its remaining tail and is paused inside that silence, not cut at it */
-    setTimeout(function(){ try{ audio.pause(); }catch(e){} }, 2600);
-    return; }
+  // ---- loop for as long as you want to sit in it. A tap-to-restart is no
+  //      use with a viewer held to your face, so the run simply begins again.
+  //      The last ten seconds settle the displacement to nothing first, so the
+  //      restart arrives out of stillness rather than cutting. ----
+  if(t>=DURATION){
+    startTime=now; t=0.0; windPhase=0.0; lastPaceT=0.0;
+    LOOPS+=1; calRead();
+  }
   var pr=t/DURATION;
 
   function sstep(a,b,x){ x=Math.max(0,Math.min(1,(x-a)/(b-a))); return x*x*(3-2*x); }
