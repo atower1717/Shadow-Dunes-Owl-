@@ -50,10 +50,10 @@
   #hide{position:fixed;right:8px;top:8px;z-index:21;
     font:11px/1 ui-monospace,Menlo,Consolas,monospace;color:#8c7c66;
     background:rgba(0,0,0,.5);border:1px solid #3a332a;padding:.55em .8em;border-radius:2px;}
-  #cal button{font:inherit;color:#cfc2a4;background:#15120c;border:1px solid #4c4439;
-    margin:0 .12em;padding:.42em .8em;border-radius:2px;}
+  #cal button{font:inherit;font-size:13px;color:#cfc2a4;background:#15120c;
+    border:1px solid #6e5f48;margin:0 .15em;padding:.7em 1.05em;border-radius:3px;}
   #cal button:active{background:#2a2317;}
-  #calread{display:block;margin-top:.35em;color:#7d7365;}
+  #calread{display:block;margin-top:.45em;font-size:13px;color:#cfc2a4;letter-spacing:.1em;}
   #again{position:absolute;left:50%;top:68%;transform:translate(-50%,-50%);z-index:11;
     border:2px solid #b99a63;padding:0.9em 1.4em;color:#efe6d2;letter-spacing:.42em;text-transform:uppercase;
     font-family:'Georgia',serif;font-size:24px;font-weight:bold;cursor:pointer;background:rgba(15,17,14,0.45);
@@ -83,7 +83,7 @@
 <div id="cal">
   <span class="grp">width <button data-a="wm">&minus;</button><button data-a="wp">+</button></span>
   <span class="grp">depth <button data-a="sm">&minus;</button><button data-a="sp">+</button></span>
-  <span class="grp"><button data-a="swap">swap eyes</button><button data-a="flat">2D</button><button data-a="rep">restart</button></span>
+  <span class="grp"><button data-a="swap">swap eyes</button><button data-a="flat">2D</button><button data-a="rep">restart</button><button data-a="max">MAX</button></span>
   <span id="calread"></span>
 </div>
 <script>
@@ -532,7 +532,7 @@ var startTime=null, running=false;
 // ---- stereo state. STEREO is the baseline: the left/right difference for the
 //      nearest thing in frame. Stereo wants far less than the mouse parallax
 //      did -- a couple of percent of image width, not seven. ----
-var STEREO=0.012, SIGN=1.0, FLAT=false, HALFMM=65;
+var STEREO=0.045, SIGN=1.0, FLAT=false, HALFMM=65, LOOPS=0;
 function calRead(){
   var el=document.getElementById('calread');
   if(el) el.textContent='half '+HALFMM+' mm   baseline '+STEREO.toFixed(3)
@@ -560,6 +560,7 @@ document.getElementById('cal').addEventListener('click',function(ev){
   else if(a==='swap'){ SIGN=-SIGN; calRead(); }
   else if(a==='flat'){ FLAT=!FLAT; calRead(); }
   else if(a==='rep'){ startTime=null; windPhase=0.0; lastPaceT=0.0; LOOPS=0; calRead(); }
+  else if(a==='max'){ STEREO=(STEREO>0.08?0.045:0.095); calRead(); }
 });
 function frame(now){
   if(!running) return;
